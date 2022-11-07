@@ -14,6 +14,11 @@ repositories {
 
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
+    // implementation 'com.google.common:google-collect:0.5'
+    // https://mvnrepository.com/artifact/com.google.common/google-collect
+    implementation 'com.google.guava:guava:24.0-jre'
+    implementation 'org.apache.commons:commons-lang3:3.12.0'
+
     implementation 'edu.illinois:nondex-common:' + version
     implementation 'edu.illinois:nondex-instrumentation:' + version
 }

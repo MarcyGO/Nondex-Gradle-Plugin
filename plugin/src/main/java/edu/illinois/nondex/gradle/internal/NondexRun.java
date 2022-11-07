@@ -7,6 +7,9 @@ import edu.illinois.nondex.common.Utils;
 import org.gradle.api.internal.artifacts.mvnsettings.DefaultMavenFileLocations;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
+import org.gradle.api.internal.tasks.testing.TestFramework;
+import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter;
+import org.gradle.api.tasks.testing.TestFilter;
 import org.gradle.process.JavaForkOptions;
 import org.gradle.util.GradleVersion;
 
@@ -14,6 +17,9 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Collections;
 import java.util.regex.Pattern;
 
 public class NondexRun extends CleanRun {
@@ -25,15 +31,47 @@ public class NondexRun extends CleanRun {
     public NondexRun(int seed, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
                            RetryTestProcessor testResultProcessor, String nondexDir, String nondexJarDir) {
         this(delegate, originalSpec, testResultProcessor, nondexDir);
+        // does not support all parameter reading at this point
         this.configuration = new Configuration(ConfigurationDefaults.DEFAULT_MODE, seed, Pattern.compile(ConfigurationDefaults.DEFAULT_FILTER),
                 ConfigurationDefaults.DEFAULT_START, ConfigurationDefaults.DEFAULT_END, nondexDir, nondexJarDir, null,
                 this.executionId, Logger.getGlobal().getLoggingLevel());
         this.originalSpec = this.createRetryJvmExecutionSpec();
     }
 
+    // constructor used for debug
+    public NondexRun(Configuration config, long start, long end, boolean print, String test,
+                     TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec spec,
+                     RetryTestProcessor testResultProcessor) {
+        this(delegate, spec, testResultProcessor, config.nondexDir);
+        this.configuration = new Configuration(config.mode, config.seed, config.filter, start,
+                end, config.nondexDir, config.nondexJarDir, test, this.executionId,
+                Logger.getGlobal().getLoggingLevel(), print);
+        this.originalSpec = this.createRetryJvmExecutionSpec();
+    }
+
+
     private JvmTestExecutionSpec createRetryJvmExecutionSpec() {
         JvmTestExecutionSpec spec = this.originalSpec;
         JavaForkOptions option = spec.getJavaForkOptions();
+        TestFramework testFramework = spec.getTestFramework();
+        // if (this.configuration.testName != null) {
+        //     TestFilter filter = new DefaultTestFilter();
+        //     filter = filter.setIncludePatterns(this.configuration.testName);
+        //     // testFramework = testFramework.copyWithFilters(filter);
+        //     testFrameWork = new JUnitTestFramework(
+        //         filter,
+        //         testFrameWork.getUseDistributionDependencies(),
+        //         testFrameWork.getOptions(),
+        //         testTask.getTemporaryDirFactory());
+        // }
+        Set<String> test;
+        if (this.configuration.testName != null) {
+            test = new HashSet<>();
+            test.add(this.configuration.testName);
+            test = Collections.unmodifiableSet(test);
+        } else {
+            test = spec.getPreviousFailedTestClasses();
+        }
         List<String> arg = this.setupArgline();
         option.setJvmArgs(arg);
         if (GradleVersion.current().getBaseVersion().compareTo(GradleVersion.version("6.4")) >= 0) {
@@ -50,7 +88,7 @@ public class NondexRun extends CleanRun {
                     spec.getForkEvery(),
                     option,
                     spec.getMaxParallelForks(),
-                    spec.getPreviousFailedTestClasses()
+                    test
             );
         } else {
             // This constructor is in Gradle 4.7+
@@ -65,7 +103,7 @@ public class NondexRun extends CleanRun {
                     spec.getForkEvery(),
                     option,
                     spec.getMaxParallelForks(),
-                    spec.getPreviousFailedTestClasses()
+                    test
             );
         }
     }
@@ -82,6 +120,9 @@ public class NondexRun extends CleanRun {
         }
         arg.add("-D" + ConfigurationDefaults.PROPERTY_EXECUTION_ID + "=" + this.configuration.executionId);
         arg.add("-D" + ConfigurationDefaults.PROPERTY_SEED + "=" + this.configuration.seed);
+        // if (this.configuration.testName != null) {
+        //     arg.add("--tests " + this.configuration.testName);
+        // }
         return arg;
     }
 

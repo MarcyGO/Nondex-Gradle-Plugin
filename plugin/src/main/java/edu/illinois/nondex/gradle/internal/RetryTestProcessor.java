@@ -101,7 +101,7 @@ public class RetryTestProcessor implements TestResultProcessor {
             String className = descriptor.getClassName();
             if (className != null) {
                 String name = descriptor.getName();
-                failingTests.add(className + "#" + name);
+                failingTests.add(className + "." + name);
             }
         }
     }

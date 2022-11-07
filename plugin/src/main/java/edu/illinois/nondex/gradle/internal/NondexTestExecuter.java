@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -23,30 +24,18 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-public class NondexTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
+public class NondexTestExecuter extends AbstractNondexExecuter {
 
-    private final TestExecuter<JvmTestExecutionSpec> delegate;
     private final List<NondexRun> nondexRuns = new LinkedList<>();
-    private final int seed;
-    private final int numRuns;
 
     public NondexTestExecuter(TestExecuter<JvmTestExecutionSpec> delegate) {
-        this.delegate = delegate;
-        this.seed = Integer.parseInt(System.getProperty(ConfigurationDefaults.PROPERTY_SEED, ConfigurationDefaults.DEFAULT_SEED_STR));
-        this.numRuns = Integer.parseInt(System.getProperty(ConfigurationDefaults.PROPERTY_NUM_RUNS, ConfigurationDefaults.DEFAULT_NUM_RUNS_STR));
+        super(delegate);
     }
 
     @Override
     public void execute(JvmTestExecutionSpec spec, TestResultProcessor testResultProcessor) {
-        try {
-            File fileForJar = Paths.get(System.getProperty("user.dir"),
-                    ConfigurationDefaults.DEFAULT_NONDEX_JAR_DIR).toFile();
-            fileForJar.mkdirs();
-            Main.main(Paths.get(fileForJar.getAbsolutePath(),
-                    ConfigurationDefaults.INSTRUMENTATION_JAR).toString());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        super.execute(spec, testResultProcessor);
+
         RetryTestProcessor retryTestProcessor = new RetryTestProcessor(testResultProcessor);
 
         CleanRun cleanRun = new CleanRun(this.delegate, spec, retryTestProcessor,
@@ -68,11 +57,14 @@ public class NondexTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
 
         Configuration config = this.nondexRuns.get(0).getConfiguration();
         this.printSummary(cleanRun, config);
-    }
 
-    @Override
-    public void stopNow() {
-        delegate.stopNow();
+        try {
+            Files.copy(config.getRunFilePath(), config.getLatestRunFilePath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ex) {
+            Logger.getGlobal().log(Level.SEVERE, "Could not copy current run info to latest", ex);
+        }
+
+        Logger.getGlobal().log(Level.INFO, "[NonDex] The id of this run is: " + this.nondexRuns.get(0).getConfiguration().executionId);
     }
 
     private void postProcessExecutions(CleanRun cleanRun) {
