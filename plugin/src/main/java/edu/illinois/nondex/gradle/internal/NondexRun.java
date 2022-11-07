@@ -9,8 +9,10 @@ import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
 import org.gradle.api.internal.tasks.testing.TestFramework;
 import org.gradle.api.internal.tasks.testing.filter.DefaultTestFilter;
+import org.gradle.api.tasks.testing.Test;
 import org.gradle.api.tasks.testing.TestFilter;
 import org.gradle.process.JavaForkOptions;
+import org.gradle.api.internal.tasks.testing.junit.JUnitTestFramework;
 import org.gradle.util.GradleVersion;
 
 import java.io.File;
@@ -23,14 +25,14 @@ import java.util.Collections;
 import java.util.regex.Pattern;
 
 public class NondexRun extends CleanRun {
-    private NondexRun(TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec spec,
+    private NondexRun(Test testTask, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec spec,
                       RetryTestProcessor testResultProcessor, String nondexDir) {
-        super(delegate, spec, testResultProcessor, Utils.getFreshExecutionId(), nondexDir);
+        super(testTask, delegate, spec, testResultProcessor, Utils.getFreshExecutionId(), nondexDir);
     }
 
-    public NondexRun(int seed, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
+    public NondexRun(int seed, Test testTask, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
                            RetryTestProcessor testResultProcessor, String nondexDir, String nondexJarDir) {
-        this(delegate, originalSpec, testResultProcessor, nondexDir);
+        this(testTask, delegate, originalSpec, testResultProcessor, nondexDir);
         // does not support all parameter reading at this point
         this.configuration = new Configuration(ConfigurationDefaults.DEFAULT_MODE, seed, Pattern.compile(ConfigurationDefaults.DEFAULT_FILTER),
                 ConfigurationDefaults.DEFAULT_START, ConfigurationDefaults.DEFAULT_END, nondexDir, nondexJarDir, null,
@@ -40,9 +42,9 @@ public class NondexRun extends CleanRun {
 
     // constructor used for debug
     public NondexRun(Configuration config, long start, long end, boolean print, String test,
-                     TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec spec,
+                     Test testTask, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec spec,
                      RetryTestProcessor testResultProcessor) {
-        this(delegate, spec, testResultProcessor, config.nondexDir);
+        this(testTask, delegate, spec, testResultProcessor, config.nondexDir);
         this.configuration = new Configuration(config.mode, config.seed, config.filter, start,
                 end, config.nondexDir, config.nondexJarDir, test, this.executionId,
                 Logger.getGlobal().getLoggingLevel(), print);
@@ -54,16 +56,12 @@ public class NondexRun extends CleanRun {
         JvmTestExecutionSpec spec = this.originalSpec;
         JavaForkOptions option = spec.getJavaForkOptions();
         TestFramework testFramework = spec.getTestFramework();
-        // if (this.configuration.testName != null) {
-        //     TestFilter filter = new DefaultTestFilter();
-        //     filter = filter.setIncludePatterns(this.configuration.testName);
-        //     // testFramework = testFramework.copyWithFilters(filter);
-        //     testFrameWork = new JUnitTestFramework(
-        //         filter,
-        //         testFrameWork.getUseDistributionDependencies(),
-        //         testFrameWork.getOptions(),
-        //         testTask.getTemporaryDirFactory());
-        // }
+        if (this.configuration.testName != null) {
+            DefaultTestFilter filter = new DefaultTestFilter();
+            filter.setIncludePatterns(this.configuration.testName);
+            // testFramework = testFramework.copyWithFilters(filter);
+            testFramework = new JUnitTestFramework(this.testTask, filter);
+        }
         Set<String> test;
         if (this.configuration.testName != null) {
             test = new HashSet<>();
@@ -77,7 +75,7 @@ public class NondexRun extends CleanRun {
         if (GradleVersion.current().getBaseVersion().compareTo(GradleVersion.version("6.4")) >= 0) {
             // This constructor is in Gradle 6.4+
             return new JvmTestExecutionSpec(
-                    spec.getTestFramework(),
+                    testFramework,
                     spec.getClasspath(),
                     spec.getModulePath(),
                     spec.getCandidateClassFiles(),
@@ -93,7 +91,7 @@ public class NondexRun extends CleanRun {
         } else {
             // This constructor is in Gradle 4.7+
             return new JvmTestExecutionSpec(
-                    spec.getTestFramework(),
+                    testFramework,
                     spec.getClasspath(),
                     spec.getCandidateClassFiles(),
                     spec.isScanForTestClasses(),

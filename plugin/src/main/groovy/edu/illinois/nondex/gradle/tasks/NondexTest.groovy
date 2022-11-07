@@ -25,7 +25,7 @@ class NondexTest extends Test {
             Method getExecuter = Test.getDeclaredMethod("createTestExecuter")
             getExecuter.setAccessible(true)
             TestExecuter<JvmTestExecutionSpec> delegate = getExecuter.invoke(this)
-            return new NondexTestExecuter(delegate)
+            return new NondexTestExecuter(this, delegate)
         } catch (Exception e) {
             throw new RuntimeException(e)
         }

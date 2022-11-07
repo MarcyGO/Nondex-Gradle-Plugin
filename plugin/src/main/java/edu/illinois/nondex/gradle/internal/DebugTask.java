@@ -14,18 +14,21 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
+import org.gradle.api.tasks.testing.Test;
 
 public class DebugTask {
     private String test;
     private List<Configuration> failingConfigurations;
 
+    private final Test testTask;
     private final TestExecuter<JvmTestExecutionSpec> delegate;
     private JvmTestExecutionSpec originalSpec;
     private RetryTestProcessor testResultProcessor;
 
-    public DebugTask(String test, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
+    public DebugTask(String test, Test testTask, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
                      RetryTestProcessor testResultProcessor,
                      List<Configuration> failingConfigurations) {
+        this.testTask = testTask;
         this.test = test;
         this.delegate = delegate;
         this.originalSpec = originalSpec;
@@ -208,7 +211,7 @@ public class DebugTask {
      */
     private Configuration failsWithConfig(Configuration config, long start, long end, boolean print) {
         NondexRun execution = new NondexRun(config, start, end, print, this.test,
-                     this.delegate, this.originalSpec, this.testResultProcessor);
+                     this.testTask, this.delegate, this.originalSpec, this.testResultProcessor);
         RetryTestProcessor result = execution.run();
         // check if fail
         Set<String> fail = result.getFailingTests();

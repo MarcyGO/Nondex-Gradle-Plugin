@@ -9,6 +9,7 @@ import edu.illinois.nondex.instr.Main;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
 import org.gradle.api.internal.tasks.testing.TestResultProcessor;
+import org.gradle.api.tasks.testing.Test;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -28,8 +29,8 @@ public class NondexTestExecuter extends AbstractNondexExecuter {
 
     private final List<NondexRun> nondexRuns = new LinkedList<>();
 
-    public NondexTestExecuter(TestExecuter<JvmTestExecutionSpec> delegate) {
-        super(delegate);
+    public NondexTestExecuter(Test testTask, TestExecuter<JvmTestExecutionSpec> delegate) {
+        super(testTask, delegate);
     }
 
     @Override
@@ -38,14 +39,14 @@ public class NondexTestExecuter extends AbstractNondexExecuter {
 
         RetryTestProcessor retryTestProcessor = new RetryTestProcessor(testResultProcessor);
 
-        CleanRun cleanRun = new CleanRun(this.delegate, spec, retryTestProcessor,
+        CleanRun cleanRun = new CleanRun(this.testTask, this.delegate, spec, retryTestProcessor,
                 System.getProperty("user.dir")+ File.separator + ConfigurationDefaults.DEFAULT_NONDEX_DIR);
         retryTestProcessor = cleanRun.run();
 
         for (int currentRun = 0; currentRun < numRuns; ++currentRun) {
             retryTestProcessor.reset(currentRun + 1 == numRuns);
             NondexRun nondexRun = new NondexRun(Utils.computeIthSeed(currentRun - 1, false, this.seed),
-                    this.delegate, spec, retryTestProcessor,
+                    this.testTask, this.delegate, spec, retryTestProcessor,
                     System.getProperty("user.dir")+ File.separator + ConfigurationDefaults.DEFAULT_NONDEX_DIR,
                     System.getProperty("user.dir")+ File.separator + ConfigurationDefaults.DEFAULT_NONDEX_JAR_DIR);
             this.nondexRuns.add(nondexRun);

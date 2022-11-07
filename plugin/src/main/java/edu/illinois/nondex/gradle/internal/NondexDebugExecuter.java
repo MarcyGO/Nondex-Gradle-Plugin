@@ -23,14 +23,15 @@ import com.google.common.collect.ListMultimap;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
 import org.gradle.api.internal.tasks.testing.TestResultProcessor;
+import org.gradle.api.tasks.testing.Test;
 
 public class NondexDebugExecuter extends AbstractNondexExecuter {
 
     private List<String> executions = new LinkedList<>(); // a list of executionId
     private ListMultimap<String, Configuration> testsFailing = LinkedListMultimap.create(); // failed tests and their configurations
 
-    public NondexDebugExecuter(TestExecuter<JvmTestExecutionSpec> delegate) {
-        super(delegate);
+    public NondexDebugExecuter(Test testTask, TestExecuter<JvmTestExecutionSpec> delegate) {
+        super(testTask, delegate);
     }
 
     @Override
@@ -46,7 +47,7 @@ public class NondexDebugExecuter extends AbstractNondexExecuter {
          * for each failed (flaky) tests, use their failing configurations to debug
          */
         for (String test : this.testsFailing.keySet()) {
-            DebugTask debugging = new DebugTask(test, this.delegate, spec,
+            DebugTask debugging = new DebugTask(test, this.testTask, this.delegate, spec,
                     retryTestProcessor, this.testsFailing.get(test));
             String repro = debugging.debug();
             testToRepro.put(test, repro);
