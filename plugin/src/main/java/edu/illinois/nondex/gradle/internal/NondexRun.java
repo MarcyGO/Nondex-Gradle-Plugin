@@ -28,10 +28,10 @@ public class NondexRun extends CleanRun {
         this.configuration = new Configuration(ConfigurationDefaults.DEFAULT_MODE, seed, Pattern.compile(ConfigurationDefaults.DEFAULT_FILTER),
                 ConfigurationDefaults.DEFAULT_START, ConfigurationDefaults.DEFAULT_END, nondexDir, nondexJarDir, null,
                 this.executionId, Logger.getGlobal().getLoggingLevel());
-        this.originalSpec = this.createRetryJvmExecutionSpec();
+        this.originalSpec = this.createNondexJvmExecutionSpec();
     }
 
-    private JvmTestExecutionSpec createRetryJvmExecutionSpec() {
+    private JvmTestExecutionSpec createNondexJvmExecutionSpec() {
         JvmTestExecutionSpec spec = this.originalSpec;
         JavaForkOptions option = spec.getJavaForkOptions();
         List<String> arg = this.setupArgline();

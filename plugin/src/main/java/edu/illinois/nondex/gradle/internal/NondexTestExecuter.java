@@ -35,6 +35,9 @@ public class NondexTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
         this.delegate = delegate;
         this.seed = Integer.parseInt(System.getProperty(ConfigurationDefaults.PROPERTY_SEED, ConfigurationDefaults.DEFAULT_SEED_STR));
         this.numRuns = Integer.parseInt(System.getProperty(ConfigurationDefaults.PROPERTY_NUM_RUNS, ConfigurationDefaults.DEFAULT_NUM_RUNS_STR));
+        if (this.numRuns < 1) {
+            throw new IllegalArgumentException("The number of nondexRuns cannot be less than 1");
+        }
     }
 
     @Override

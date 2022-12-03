@@ -5,9 +5,9 @@ This plugin has 3 tasks:
 
 nondexTest
     Run tests with nondex and find out the non-deterministic issue
-    Use the -DnondexRuns command line argument to run tests a specified number of times
+    Use the -DnondexRuns command line argument to run tests a specified number of times. Must be at least  1 run.
     Use the -DnonexSeed command line argument to run tests with a specific seed of randomization
-    Filtering to only run certain test methods or classes can be done in same way as default Test task
+    Filtering to only run certain test methods or classes can be done in same way as default Gradle Test task
 
 nondexClean
     Remove the .nondex directory that is created when tests are run with nondex
