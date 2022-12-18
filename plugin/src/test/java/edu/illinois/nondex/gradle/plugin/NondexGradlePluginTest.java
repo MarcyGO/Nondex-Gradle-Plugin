@@ -3,7 +3,7 @@ package edu.illinois.nondex.gradle.plugin;
 import org.gradle.testfixtures.ProjectBuilder;
 import org.gradle.api.Project;
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class NondexGradlePluginTest {
     @Test

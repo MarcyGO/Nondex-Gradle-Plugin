@@ -5,7 +5,7 @@ import edu.illinois.nondex.common.ConfigurationDefaults;
 import edu.illinois.nondex.common.Level;
 import edu.illinois.nondex.common.Logger;
 import edu.illinois.nondex.common.Utils;
-import edu.illinois.nondex.instr.Main;
+import edu.illinois.nondex.gradle.tasks.AbstractNondexTest;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
 import org.gradle.api.internal.tasks.testing.TestResultProcessor;
@@ -16,62 +16,75 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class NondexTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
 
     private final TestExecuter<JvmTestExecutionSpec> delegate;
     private final List<NondexRun> nondexRuns = new LinkedList<>();
-    private final int seed;
-    private final int numRuns;
+    private final List<CleanRun> cleanRuns = new ArrayList<>();
+    private final AbstractNondexTest nondexTestTask;
 
-    public NondexTestExecuter(TestExecuter<JvmTestExecutionSpec> delegate) {
+    public NondexTestExecuter(AbstractNondexTest nondexTestTask, TestExecuter<JvmTestExecutionSpec> delegate) {
+        this.nondexTestTask = nondexTestTask;
         this.delegate = delegate;
-        this.seed = Integer.parseInt(System.getProperty(ConfigurationDefaults.PROPERTY_SEED, ConfigurationDefaults.DEFAULT_SEED_STR));
-        this.numRuns = Integer.parseInt(System.getProperty(ConfigurationDefaults.PROPERTY_NUM_RUNS, ConfigurationDefaults.DEFAULT_NUM_RUNS_STR));
-        if (this.numRuns < 1) {
-            throw new IllegalArgumentException("The number of nondexRuns cannot be less than 1");
-        }
     }
 
     @Override
     public void execute(JvmTestExecutionSpec spec, TestResultProcessor testResultProcessor) {
-        try {
-            File fileForJar = Paths.get(System.getProperty("user.dir"),
-                    ConfigurationDefaults.DEFAULT_NONDEX_JAR_DIR).toFile();
-            fileForJar.mkdirs();
-            Main.main(Paths.get(fileForJar.getAbsolutePath(),
-                    ConfigurationDefaults.INSTRUMENTATION_JAR).toString());
-        } catch (Exception e) {
-            e.printStackTrace();
+        Logger.getGlobal().log(Level.INFO, "The original argline is: " + nondexTestTask.getOriginalArgLine());
+        NondexTestProcessor cleanRunProcessor = new NondexTestProcessor(testResultProcessor);
+
+        for (int currentRun = 0; currentRun < nondexTestTask.getNondexRunsWithoutShuffling(); ++currentRun) {
+            cleanRunProcessor.reset(currentRun + 1 == nondexTestTask.getNondexRunsWithoutShuffling());
+            CleanRun cleanRun = new CleanRun(nondexTestTask, this.delegate, spec, cleanRunProcessor,
+                    nondexTestTask.getProject().getProjectDir().getAbsolutePath() + File.separator + ConfigurationDefaults.DEFAULT_NONDEX_DIR);
+            this.cleanRuns.add(cleanRun);
+            cleanRun.run();
         }
-        NondexTestProcessor nondexTestProcessor = new NondexTestProcessor(testResultProcessor);
 
-        CleanRun cleanRun = new CleanRun(this.delegate, spec, nondexTestProcessor,
-                System.getProperty("user.dir")+ File.separator + ConfigurationDefaults.DEFAULT_NONDEX_DIR);
-        nondexTestProcessor = cleanRun.run();
-
-        for (int currentRun = 0; currentRun < numRuns; ++currentRun) {
-            nondexTestProcessor.reset(currentRun + 1 == numRuns);
-            NondexRun nondexRun = new NondexRun(Utils.computeIthSeed(currentRun - 1, false, this.seed),
-                    this.delegate, spec, nondexTestProcessor,
-                    System.getProperty("user.dir")+ File.separator + ConfigurationDefaults.DEFAULT_NONDEX_DIR,
-                    System.getProperty("user.dir")+ File.separator + ConfigurationDefaults.DEFAULT_NONDEX_JAR_DIR);
+        NondexTestProcessor nondexRunProcessor = new NondexTestProcessor(testResultProcessor);
+        for (int currentRun = 0; currentRun < nondexTestTask.getNondexRuns(); ++currentRun) {
+            nondexRunProcessor.reset(currentRun + 1 == nondexTestTask.getNondexRuns());
+            NondexRun nondexRun = new NondexRun(nondexTestTask, Utils.computeIthSeed(currentRun,
+                    nondexTestTask.getNondexRerun(), nondexTestTask.getNondexSeed()),
+                    this.delegate, spec, nondexRunProcessor,
+                    nondexTestTask.getProject().getProjectDir() + File.separator + ConfigurationDefaults.DEFAULT_NONDEX_DIR,
+                    nondexTestTask.getProject().getProjectDir() + File.separator + ConfigurationDefaults.DEFAULT_NONDEX_JAR_DIR);
             this.nondexRuns.add(nondexRun);
-            nondexTestProcessor = nondexRun.run();
+            nondexRun.run();
             this.writeCurrentRunInfo(nondexRun);
         }
-        this.writeCurrentRunInfo(cleanRun);
-        this.postProcessExecutions(cleanRun);
+
+        for (CleanRun cleanRun : this.cleanRuns) {
+            this.writeCurrentRunInfo(cleanRun);
+            this.postProcessExecutions(cleanRun);
+        }
 
         Configuration config = this.nondexRuns.get(0).getConfiguration();
-        this.printSummary(cleanRun, config);
+
+        boolean hasFailingTests = printAndGetSummary(config);
+
+        try {
+            Files.copy(config.getRunFilePath(), config.getLatestRunFilePath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException ex) {
+            Logger.getGlobal().log(Level.SEVERE, "Could not copy current run info to latest", ex);
+        }
+
+        Logger.getGlobal().log(Level.INFO, "[NonDex] The id of this run is: " + config.executionId);
+
+        if (hasFailingTests) {
+            throw new VerificationException("There were failing tests");
+        }
     }
 
     @Override
@@ -96,21 +109,46 @@ public class NondexTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
         }
     }
 
-    private void printSummary(CleanRun cleanRun, Configuration config) {
+    private boolean printAndGetSummary(Configuration config) {
         Set<String> allFailures = new LinkedHashSet<>();
+        Map<String, Integer> countsOfFailingTestsWithoutShuffling = new LinkedHashMap<>();
+        boolean failsWithoutShuffling = false;
         Logger.getGlobal().log(Level.INFO, "NonDex SUMMARY:");
         for (CleanRun run : this.nondexRuns) {
             this.printExecutionResults(allFailures, run);
         }
-
-        if (!cleanRun.getConfiguration().getFailedTests().isEmpty()) {
-            Logger.getGlobal().log(Level.INFO, "Tests are failing without NonDex.");
-            this.printExecutionResults(allFailures, cleanRun);
+        for (int i = 0; i < cleanRuns.size(); ++i) {
+            CleanRun cleanRun = this.cleanRuns.get(i);
+            Collection<String> failedTests = cleanRun.getConfiguration().getFailedTests();
+            if (!failedTests.isEmpty()) {
+                failsWithoutShuffling = true;
+                if (nondexTestTask.getNondexRunsWithoutShuffling() == 1) {
+                    Logger.getGlobal().log(Level.INFO, "The following tests failed in the clean run:");
+                } else {
+                    Logger.getGlobal().log(Level.INFO, "In run #" + String.valueOf(i + 1)
+                            + " without NonDex shuffling, the following tests failed:");
+                }
+                for (String test : failedTests) {
+                    Logger.getGlobal().log(Level.WARNING, test);
+                    int count = countsOfFailingTestsWithoutShuffling.containsKey(test)
+                            ? countsOfFailingTestsWithoutShuffling.get(test) : 0;
+                    countsOfFailingTestsWithoutShuffling.put(test, count + 1);
+                }
+            }
+        }
+        if (failsWithoutShuffling && (nondexTestTask.getNondexRunsWithoutShuffling() > 1)) {
+            Logger.getGlobal().log(Level.INFO, "------------------");
+            Logger.getGlobal().log(Level.INFO, "The following tests are failing in clean runs without NonDex shuffling");
+            for (Map.Entry<String, Integer> entry : countsOfFailingTestsWithoutShuffling.entrySet()) {
+                Logger.getGlobal().log(Level.INFO, "Test: " + entry.getKey());
+                Logger.getGlobal().log(Level.INFO, "Fails in " + entry.getValue() + " out of "
+                        + nondexTestTask.getNondexRunsWithoutShuffling() + " clean runs.");
+            }
+        } else if (!failsWithoutShuffling) {
+            Logger.getGlobal().log(Level.INFO, "All tests pass without NonDex shuffling");
         }
 
-        boolean cleanRunHasFailingTests = !cleanRun.getConfiguration().getFailedTests().isEmpty();
-        allFailures.removeAll(cleanRun.getConfiguration().getFailedTests());
-
+        Logger.getGlobal().log(Level.INFO, "####################");
         Logger.getGlobal().log(Level.INFO, "Across all seeds:");
         for (String test : allFailures) {
             Logger.getGlobal().log(Level.INFO, test);
@@ -118,9 +156,7 @@ public class NondexTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
 
         this.generateHtml(allFailures, config);
 
-        if (cleanRunHasFailingTests || !allFailures.isEmpty()) {
-            throw new VerificationException("There were failing tests");
-        }
+        return failsWithoutShuffling || !allFailures.isEmpty();
     }
 
     private void generateHtml(Set<String> allFailures, Configuration config) {
@@ -178,7 +214,7 @@ public class NondexTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
 
     private void printExecutionResults(Set<String> allFailures, CleanRun run) {
         Logger.getGlobal().log(Level.INFO, "*********");
-        Logger.getGlobal().log(Level.INFO, "mvn nondex:nondex " + run.getConfiguration().toArgLine());
+        Logger.getGlobal().log(Level.INFO, "gradle nondexTest" + run.getConfiguration().toArgLine());
         Collection<String> failedTests = run.getConfiguration().getFailedTests();
         if (failedTests.isEmpty()) {
             Logger.getGlobal().log(Level.INFO, "No Test Failed with this configuration.");

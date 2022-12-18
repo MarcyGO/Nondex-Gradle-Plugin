@@ -4,94 +4,78 @@ import edu.illinois.nondex.common.Configuration;
 import edu.illinois.nondex.common.ConfigurationDefaults;
 import edu.illinois.nondex.common.Logger;
 import edu.illinois.nondex.common.Utils;
-import org.gradle.api.internal.artifacts.mvnsettings.DefaultMavenFileLocations;
+import edu.illinois.nondex.gradle.tasks.AbstractNondexTest;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
-import org.gradle.process.JavaForkOptions;
-import org.gradle.util.GradleVersion;
+import org.gradle.wrapper.GradleUserHomeLookup;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import static edu.illinois.nondex.gradle.constants.NondexGradlePluginConstants.*;
+
 public class NondexRun extends CleanRun {
-    private NondexRun(TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec spec,
-                      NondexTestProcessor testResultProcessor, String nondexDir) {
-        super(delegate, spec, testResultProcessor, Utils.getFreshExecutionId(), nondexDir);
+
+    private NondexRun(TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
+                      NondexTestProcessor testResultProcessor, String nondexDir, AbstractNondexTest nondexTestTask) {
+        super(nondexTestTask, delegate, originalSpec, testResultProcessor, Utils.getFreshExecutionId(), nondexDir);
     }
 
-    public NondexRun(int seed, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
-                     NondexTestProcessor testResultProcessor, String nondexDir, String nondexJarDir) {
-        this(delegate, originalSpec, testResultProcessor, nondexDir);
-        this.configuration = new Configuration(ConfigurationDefaults.DEFAULT_MODE, seed, Pattern.compile(ConfigurationDefaults.DEFAULT_FILTER),
-                ConfigurationDefaults.DEFAULT_START, ConfigurationDefaults.DEFAULT_END, nondexDir, nondexJarDir, null,
+    public NondexRun(AbstractNondexTest nondexTestTask, int seed, TestExecuter<JvmTestExecutionSpec> delegate,
+                     JvmTestExecutionSpec originalSpec, NondexTestProcessor testResultProcessor, String nondexDir, String nondexJarDir) {
+        this(delegate, originalSpec, testResultProcessor, nondexDir, nondexTestTask);
+        this.configuration = new Configuration(nondexTestTask.getNondexMode(), seed, Pattern.compile(nondexTestTask.getNondexFilter()),
+                nondexTestTask.getNondexStart(), nondexTestTask.getNondexEnd(), nondexDir, nondexJarDir, null,
                 this.executionId, Logger.getGlobal().getLoggingLevel());
-        this.originalSpec = this.createNondexJvmExecutionSpec();
+        this.originalSpec = this.createJvmExecutionSpecWithArgs(this.setupArgline(), this.originalSpec);
     }
 
-    private JvmTestExecutionSpec createNondexJvmExecutionSpec() {
-        JvmTestExecutionSpec spec = this.originalSpec;
-        JavaForkOptions option = spec.getJavaForkOptions();
-        List<String> arg = this.setupArgline();
-        option.setJvmArgs(arg);
-        if (GradleVersion.current().getBaseVersion().compareTo(GradleVersion.version("6.4")) >= 0) {
-            // This constructor is in Gradle 6.4+
-            return new JvmTestExecutionSpec(
-                    spec.getTestFramework(),
-                    spec.getClasspath(),
-                    spec.getModulePath(),
-                    spec.getCandidateClassFiles(),
-                    spec.isScanForTestClasses(),
-                    spec.getTestClassesDirs(),
-                    spec.getPath(),
-                    spec.getIdentityPath(),
-                    spec.getForkEvery(),
-                    option,
-                    spec.getMaxParallelForks(),
-                    spec.getPreviousFailedTestClasses()
-            );
-        } else {
-            // This constructor is in Gradle 4.7+
-            return new JvmTestExecutionSpec(
-                    spec.getTestFramework(),
-                    spec.getClasspath(),
-                    spec.getCandidateClassFiles(),
-                    spec.isScanForTestClasses(),
-                    spec.getTestClassesDirs(),
-                    spec.getPath(),
-                    spec.getIdentityPath(),
-                    spec.getForkEvery(),
-                    option,
-                    spec.getMaxParallelForks(),
-                    spec.getPreviousFailedTestClasses()
-            );
-        }
+    public NondexRun(Configuration configuration, AbstractNondexTest nondexTestTask,
+                     TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec, NondexTestProcessor testResultProcessor) {
+        this(delegate, originalSpec, testResultProcessor, configuration.nondexDir, nondexTestTask);
+        this.configuration = configuration;
+        this.originalSpec = this.createJvmExecutionSpecWithArgs(this.setupArgline(), this.originalSpec);
     }
 
-    private List<String> setupArgline() {
+
+    @Override
+    protected List<String> setupArgline() {
         String pathToNondex = getPathToNondexJar();
-        List<String> arg = new ArrayList<>();
-        if (!System.getProperty("java.version").startsWith("1.")) {
-            arg.add("--patch-module=java.base=" + pathToNondex);
-            arg.add("--add-exports=java.base/edu.illinois.nondex.common=ALL-UNNAMED");
-            arg.add("--add-exports=java.base/edu.illinois.nondex.shuffling=ALL-UNNAMED");
+        List<String> argline = new LinkedList<>();
+        if (!Utils.checkJDKBefore8()) {
+            argline.add("--patch-module=java.base=" + pathToNondex);
+            argline.add("--add-exports=java.base/edu.illinois.nondex.common=ALL-UNNAMED");
+            argline.add("--add-exports=java.base/edu.illinois.nondex.shuffling=ALL-UNNAMED");
         } else {
-            arg.add("-Xbootclasspath/p:" + pathToNondex);
+            argline.add("-Xbootclasspath/p:" + pathToNondex);
         }
-        arg.add("-D" + ConfigurationDefaults.PROPERTY_EXECUTION_ID + "=" + this.configuration.executionId);
-        arg.add("-D" + ConfigurationDefaults.PROPERTY_SEED + "=" + this.configuration.seed);
-        return arg;
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_EXECUTION_ID + "=" + configuration.executionId);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_SEED + "=" + configuration.seed);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_MODE + "=" + configuration.mode);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_START + "=" + configuration.start);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_END + "=" + configuration.end);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_PRINT_STACK + "=" + configuration.shouldPrintStackTrace);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_NONDEX_DIR + "=" + configuration.nondexDir);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_NONDEX_JAR_DIR + "=" + configuration.nondexJarDir);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_LOGGING_LEVEL + "=" + configuration.loggingLevel);
+        argline.add("-D" + ConfigurationDefaults.PROPERTY_FILTER + "=" + configuration.filter);
+        if (configuration.testName != null) {
+            argline.add("-Dtest=" + configuration.testName);
+        }
+        argline.addAll(super.setupArgline());
+        return argline;
     }
 
     private String getPathToNondexJar() {
-        DefaultMavenFileLocations loc = new DefaultMavenFileLocations();
-        File mvnLoc = loc.getUserMavenDir();
-        String result = Paths.get(this.configuration.nondexJarDir, ConfigurationDefaults.INSTRUMENTATION_JAR) + File.pathSeparator
-                + Paths.get(mvnLoc.toString(),
-                "repository", "edu", "illinois", "nondex-common", ConfigurationDefaults.VERSION,
-                "nondex-common-" + ConfigurationDefaults.VERSION + ".jar");
+        File gradleHomeLocation = GradleUserHomeLookup.gradleUserHome();
+        // Gradle uses the SHA1 key of the file as the directory name
+        String result = Paths.get(this.configuration.nondexJarDir,
+                ConfigurationDefaults.INSTRUMENTATION_JAR) + File.pathSeparator + Paths.get(gradleHomeLocation.toString(),
+                "caches", "modules-2", "files-2.1", "edu.illinois", "nondex-common", NONDEX_VERSION,
+                NONDEX_COMMON_SHA1, "nondex-common-" + NONDEX_VERSION + ".jar");
         return result;
     }
 }
