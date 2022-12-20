@@ -7,6 +7,8 @@ build
 # Mac
 .DS_Store
 
-# Idea
+# IDE
 .idea
 *.iml
+.vscode
+

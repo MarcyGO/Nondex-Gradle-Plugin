@@ -55,7 +55,7 @@ public class CleanRun {
 
     protected JvmTestExecutionSpec createJvmExecutionSpecWithArgs(List<String> args, JvmTestExecutionSpec originalSpec) {
         JavaForkOptions option = originalSpec.getJavaForkOptions();
-        option.setJvmArgs(args);
+        option.setAllJvmArgs(args);
         if (GradleVersion.current().getBaseVersion().compareTo(GradleVersion.version("6.4")) >= 0) {
             // This constructor is in Gradle 6.4+
             return new JvmTestExecutionSpec(

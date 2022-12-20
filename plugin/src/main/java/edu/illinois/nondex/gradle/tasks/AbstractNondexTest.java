@@ -149,6 +149,6 @@ public abstract class AbstractNondexTest extends Test {
             throw new TaskInstantiationException("Cannot find a test task for this project");
         }
 
-        this.originalArgLine = testTask.getJvmArgs();
+        this.originalArgLine = testTask.getAllJvmArgs();
     }
 }
