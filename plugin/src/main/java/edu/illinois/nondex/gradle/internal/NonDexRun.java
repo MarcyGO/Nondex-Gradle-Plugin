@@ -4,7 +4,7 @@ import edu.illinois.nondex.common.Configuration;
 import edu.illinois.nondex.common.ConfigurationDefaults;
 import edu.illinois.nondex.common.Logger;
 import edu.illinois.nondex.common.Utils;
-import edu.illinois.nondex.gradle.tasks.AbstractNondexTest;
+import edu.illinois.nondex.gradle.tasks.AbstractNonDexTest;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
 import org.gradle.wrapper.GradleUserHomeLookup;
@@ -15,17 +15,18 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import static edu.illinois.nondex.gradle.constants.NondexGradlePluginConstants.*;
+import static edu.illinois.nondex.gradle.constants.NonDexGradlePluginConstants.NONDEX_COMMON_SHA1;
+import static edu.illinois.nondex.gradle.constants.NonDexGradlePluginConstants.NONDEX_VERSION;
 
-public class NondexRun extends CleanRun {
+public class NonDexRun extends CleanRun {
 
-    private NondexRun(TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
-                      NondexTestProcessor testResultProcessor, String nondexDir, AbstractNondexTest nondexTestTask) {
+    private NonDexRun(TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
+                      NonDexTestProcessor testResultProcessor, String nondexDir, AbstractNonDexTest nondexTestTask) {
         super(nondexTestTask, delegate, originalSpec, testResultProcessor, Utils.getFreshExecutionId(), nondexDir);
     }
 
-    public NondexRun(AbstractNondexTest nondexTestTask, int seed, TestExecuter<JvmTestExecutionSpec> delegate,
-                     JvmTestExecutionSpec originalSpec, NondexTestProcessor testResultProcessor, String nondexDir, String nondexJarDir) {
+    public NonDexRun(AbstractNonDexTest nondexTestTask, int seed, TestExecuter<JvmTestExecutionSpec> delegate,
+                     JvmTestExecutionSpec originalSpec, NonDexTestProcessor testResultProcessor, String nondexDir, String nondexJarDir) {
         this(delegate, originalSpec, testResultProcessor, nondexDir, nondexTestTask);
         this.configuration = new Configuration(nondexTestTask.getNondexMode(), seed, Pattern.compile(nondexTestTask.getNondexFilter()),
                 nondexTestTask.getNondexStart(), nondexTestTask.getNondexEnd(), nondexDir, nondexJarDir, null,
@@ -33,8 +34,8 @@ public class NondexRun extends CleanRun {
         this.originalSpec = this.createJvmExecutionSpecWithArgs(this.setupArgline(), this.originalSpec);
     }
 
-    public NondexRun(Configuration configuration, AbstractNondexTest nondexTestTask,
-                     TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec, NondexTestProcessor testResultProcessor) {
+    public NonDexRun(Configuration configuration, AbstractNonDexTest nondexTestTask,
+                     TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec, NonDexTestProcessor testResultProcessor) {
         this(delegate, originalSpec, testResultProcessor, configuration.nondexDir, nondexTestTask);
         this.configuration = configuration;
         this.originalSpec = this.createJvmExecutionSpecWithArgs(this.setupArgline(), this.originalSpec);
@@ -43,7 +44,7 @@ public class NondexRun extends CleanRun {
 
     @Override
     protected List<String> setupArgline() {
-        String pathToNondex = getPathToNondexJar();
+        String pathToNondex = getPathToNonDexJar();
         List<String> argline = new LinkedList<>();
         if (!Utils.checkJDKBefore8()) {
             argline.add("--patch-module=java.base=" + pathToNondex);
@@ -69,7 +70,7 @@ public class NondexRun extends CleanRun {
         return argline;
     }
 
-    private String getPathToNondexJar() {
+    private String getPathToNonDexJar() {
         File gradleHomeLocation = GradleUserHomeLookup.gradleUserHome();
         // Gradle uses the SHA1 key of the file as the directory name
         String result = Paths.get(this.configuration.nondexJarDir,

@@ -5,7 +5,7 @@ import org.gradle.api.Project;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-class NondexGradlePluginTest {
+class NonDexGradlePluginTest {
     @Test
     void pluginRegistersATask() {
         Project project = ProjectBuilder.builder().build();

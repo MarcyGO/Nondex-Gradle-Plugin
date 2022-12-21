@@ -31,7 +31,7 @@ gradlePlugin {
         nondexPlugin {
             id = 'edu.illinois.nondex'
             displayName = 'Nondex plugin for Gradle'
-            implementationClass = 'edu.illinois.nondex.gradle.plugin.NondexGradlePlugin'
+            implementationClass = 'edu.illinois.nondex.gradle.plugin.NonDexGradlePlugin'
         }
     }
 }

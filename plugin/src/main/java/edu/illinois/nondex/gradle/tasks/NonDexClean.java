@@ -8,12 +8,12 @@ import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-public class NondexClean extends DefaultTask {
+public class NonDexClean extends DefaultTask {
     static final String NAME = "nondexClean";
 
     public static String getNAME() { return NAME; }
 
-    public void init() {
+    public NonDexClean() {
         setDescription("Clean Nondex jar and directory");
         setGroup("NonDex");
     }

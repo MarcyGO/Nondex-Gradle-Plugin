@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-public class NondexDebug extends AbstractNondexTest {
+public class NonDexDebug extends AbstractNonDexTest {
 
     static final String NAME = "nondexDebug";
     private final List<String> executions = new LinkedList<>();
@@ -36,7 +36,7 @@ public class NondexDebug extends AbstractNondexTest {
 
     public static String getNAME() { return NAME; }
 
-    public void init() {
+    public NonDexDebug() {
         setDescription("Debug with NonDex");
         setGroup("NonDex");
         DebugExecuter debugExecuter = this.createNondexDebugExecuter();
@@ -143,7 +143,7 @@ public class NondexDebug extends AbstractNondexTest {
             String defaultTest = this.test;
             String testClass = this.test.substring(0, test.lastIndexOf('.'));
             for (String testFilterPatterns : new String[] { defaultTest, testClass, "" }) {
-                NondexDebug.this.runSpecifiedTests(testFilterPatterns);
+                NonDexDebug.this.runSpecifiedTests(testFilterPatterns);
                 this.test = testFilterPatterns;
                 String result = this.tryDebugSeeds();
                 if (result != null) {
@@ -324,8 +324,8 @@ public class NondexDebug extends AbstractNondexTest {
             Configuration configCopy = new Configuration(config.mode, config.seed, config.filter, start,
                     end, config.nondexDir, config.nondexJarDir, this.test, Utils.getFreshExecutionId(),
                     Logger.getGlobal().getLoggingLevel(), print);
-            NondexDebug.this.debugExecuter.setConfiguration(configCopy);
-            NondexDebug.super.executeTests();
+            NonDexDebug.this.debugExecuter.setConfiguration(configCopy);
+            NonDexDebug.super.executeTests();
             if (!configCopy.getFailedTests().isEmpty()) {
                 return configCopy;
             }

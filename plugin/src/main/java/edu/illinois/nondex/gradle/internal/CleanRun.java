@@ -4,7 +4,7 @@ import edu.illinois.nondex.common.Configuration;
 import edu.illinois.nondex.common.Level;
 import edu.illinois.nondex.common.Logger;
 import edu.illinois.nondex.common.Utils;
-import edu.illinois.nondex.gradle.tasks.AbstractNondexTest;
+import edu.illinois.nondex.gradle.tasks.AbstractNonDexTest;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
 import org.gradle.process.JavaForkOptions;
@@ -18,12 +18,12 @@ public class CleanRun {
     protected Configuration configuration;
     protected final String executionId;
     protected JvmTestExecutionSpec originalSpec;
-    protected AbstractNondexTest nondexTestTask;
+    protected AbstractNonDexTest nondexTestTask;
     private final TestExecuter<JvmTestExecutionSpec> delegate;
-    private NondexTestProcessor nondexTestProcessor;
+    private NonDexTestProcessor nondexTestProcessor;
 
-    protected CleanRun(AbstractNondexTest nondexTestTask, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
-                       NondexTestProcessor nondexTestProcessor, String executionId, String nondexDir) {
+    protected CleanRun(AbstractNonDexTest nondexTestTask, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
+                       NonDexTestProcessor nondexTestProcessor, String executionId, String nondexDir) {
         this.nondexTestTask = nondexTestTask;
         this.delegate = delegate;
         this.nondexTestProcessor = nondexTestProcessor;
@@ -32,8 +32,8 @@ public class CleanRun {
         this.originalSpec = this.createJvmExecutionSpecWithArgs(setupArgline(), originalSpec);
     }
 
-    public CleanRun(AbstractNondexTest nondexTestTask, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
-                    NondexTestProcessor nondexTestProcessor, String nondexDir) {
+    public CleanRun(AbstractNonDexTest nondexTestTask, TestExecuter<JvmTestExecutionSpec> delegate, JvmTestExecutionSpec originalSpec,
+                    NonDexTestProcessor nondexTestProcessor, String nondexDir) {
         this(nondexTestTask, delegate, originalSpec, nondexTestProcessor, "clean_" + Utils.getFreshExecutionId(), nondexDir);
     }
 
@@ -41,7 +41,7 @@ public class CleanRun {
         return this.configuration;
     }
 
-    public NondexTestProcessor run() {
+    public NonDexTestProcessor run() {
         Logger.getGlobal().log(Level.CONFIG, this.configuration.toString());
         this.delegate.execute(this.originalSpec, this.nondexTestProcessor);
         this.setFailures();

@@ -19,7 +19,7 @@ import java.nio.file.Paths;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
-public abstract class AbstractNondexTest extends Test {
+public abstract class AbstractNonDexTest extends Test {
 
     protected int nondexSeed = Integer.parseInt(ConfigurationDefaults.DEFAULT_SEED_STR);
     @Option(option = ConfigurationDefaults.PROPERTY_SEED, description = "The seed that is used for randomization during shuffling.")

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class NondexGradlePluginFunctionalTest {
+public class NonDexGradlePluginFunctionalTest {
 
     private File projectDirectory;
 
@@ -149,7 +149,7 @@ public class NondexGradlePluginFunctionalTest {
         GradleRunner.create()
             .withProjectDir(projectDirectory)
             .withPluginClasspath()
-            .withArguments("nondexTest", "--stacktrace")
+            .withArguments("nondexTest")
             .build();
         
         File nondexDir = new File(projectDirectory, "module1/.nondex");
