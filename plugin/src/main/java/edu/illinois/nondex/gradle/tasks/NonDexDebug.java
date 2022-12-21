@@ -11,7 +11,6 @@ import edu.illinois.nondex.gradle.internal.DebugExecuter;
 import org.apache.commons.lang3.tuple.Pair;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
-import org.gradle.api.tasks.VerificationException;
 import org.gradle.api.tasks.testing.Test;
 
 import java.io.BufferedReader;
@@ -137,14 +136,21 @@ public class NonDexDebug extends AbstractNonDexTest {
 
         private String debug() {
             if (this.failingConfigurations.isEmpty()) {
-                throw new VerificationException("Tests need to first fail with NonDex to be debugged");
+                throw new RuntimeException("Tests need to first fail with NonDex to be debugged");
             }
 
-            String defaultTest = this.test;
+            String singleTest = this.test;
             String testClass = this.test.substring(0, test.lastIndexOf('.'));
-            for (String testFilterPatterns : new String[] { defaultTest, testClass, "" }) {
-                NonDexDebug.this.runSpecifiedTests(testFilterPatterns);
-                this.test = testFilterPatterns;
+            for (String testFilterPatterns : new String[] { singleTest, testClass, "" }) {
+                // Parameterized JUnit tests will have parenthesis surrounding the parameters after the test name
+                // We need to remove the parenthesis because Gradle cannot filter a specific parameterized test
+                int parenthesisIndex  = testFilterPatterns.indexOf('(');
+                if (parenthesisIndex != -1) {
+                    this.test = testFilterPatterns.substring(0, parenthesisIndex);
+                } else {
+                    this.test = testFilterPatterns;
+                }
+                NonDexDebug.this.runSpecifiedTests(this.test);
                 String result = this.tryDebugSeeds();
                 if (result != null) {
                     return result;

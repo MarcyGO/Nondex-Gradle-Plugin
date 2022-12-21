@@ -9,7 +9,6 @@ import edu.illinois.nondex.gradle.tasks.AbstractNonDexTest;
 import org.gradle.api.internal.tasks.testing.JvmTestExecutionSpec;
 import org.gradle.api.internal.tasks.testing.TestExecuter;
 import org.gradle.api.internal.tasks.testing.TestResultProcessor;
-import org.gradle.api.tasks.VerificationException;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -83,7 +82,7 @@ public class NonDexTestExecuter implements TestExecuter<JvmTestExecutionSpec> {
         Logger.getGlobal().log(Level.INFO, "[NonDex] The id of this run is: " + config.executionId);
 
         if (hasFailingTests) {
-            throw new VerificationException("There were failing tests");
+            throw new RuntimeException("There were failing tests");
         }
     }
 
